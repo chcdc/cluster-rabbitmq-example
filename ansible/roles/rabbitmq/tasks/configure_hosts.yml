@@ -1,0 +1,55 @@
+---
+- name: Wait all servers
+  wait_for_connection:
+    timeout: 60
+
+- name: Collect private IP addresses of all hosts
+  set_fact:
+    host_entries: "{{ host_entries | default({}) | combine({item: hostvars[item]['private_ip']}) }}"
+  loop: "{{ groups['all'] }}"
+  run_once: true
+  delegate_to: localhost
+  delegate_facts: true
+
+- name: Distribute host_entries to all nodes
+  set_fact:
+    host_entries: "{{ hostvars['localhost']['host_entries'] }}"
+
+- name: Backup of the original /etc/hosts file
+  copy:
+    src: /etc/hosts
+    dest: /etc/hosts.bak
+    remote_src: yes
+    force: no
+
+- name: Setting default entries in /etc/hosts
+  blockinfile:
+    path: /etc/hosts
+    block: |
+      127.0.0.1 localhost
+      127.0.1.1 {{ ansible_hostname }}
+      # The following lines are desirable for IPv6 capable hosts
+      ::1     localhost ip6-localhost ip6-loopback
+      ff02::1 ip6-allnodes
+      ff02::2 ip6-allrouters
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - DEFAULT HOSTS"
+    create: yes
+
+- name: Add entries for all Debian hosts to /etc/hosts
+  blockinfile:
+    path: /etc/hosts
+    block: |
+      {% for host in groups['os_Debian'] %}
+      {{ hostvars[host]['private_ip'] }} {{ host }}
+      {% endfor %}
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - DEBIAN HOSTS"
+    state: present
+
+- name: Check the contents of the /etc/hosts file
+  command: cat /etc/hosts
+  register: hosts_content
+  changed_when: false
+
+- name: Show contents of /etc/hosts file
+  debug:
+    var: hosts_content.stdout_lines

@@ -1,0 +1,20 @@
+plugin: aws_ec2
+regions:
+  - us-east-1
+filters:
+  tag:Project: spot-cluster
+  instance-state-name: running
+keyed_groups:
+  - key: tags.OS
+    prefix: os
+  - key: tags.Cluster
+    prefix: rabbitmq
+hostnames:
+  - tag:Name
+  - private-ip-address
+compose:
+  ansible_host: public_ip_address
+  name: tags.Name | default('unnamed-instance')
+  public_ip: public_ip_address
+  private_ip: private_ip_address
+  os_type: tags.OS | default('unknown')

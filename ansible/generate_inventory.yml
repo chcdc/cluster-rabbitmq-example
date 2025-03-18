@@ -1,0 +1,17 @@
+---
+- name: Gerar arquivo inventory/hosts.ini a partir do inventário dinâmico
+  hosts: localhost
+  gather_facts: no
+
+  tasks:
+    - name: Create inventory directory if it doesn't exist
+      file:
+        path: inventory
+        state: directory
+        mode: '0755'
+
+    - name: Generate inventory/hosts.ini file
+      template:
+        src: "{{ playbook_dir }}/roles/rabbitmq/templates/hosts.ini.j2"
+        dest: inventory/hosts.ini
+        mode: '0644'

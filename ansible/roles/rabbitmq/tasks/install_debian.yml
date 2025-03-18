@@ -1,0 +1,114 @@
+---
+- name: Start time services
+  ansible.builtin.service:
+    name: systemd-timesyncd
+    state: started
+    enabled: "yes"
+  become: true
+
+- name: Run timedatectl status
+  ansible.builtin.command: /usr/bin/timedatectl status
+  changed_when: false
+  check_mode: false
+  register: timedatectl_result
+
+- name: Enable ntp
+  ansible.builtin.command: /usr/bin/timedatectl set-ntp true
+  when: "'Network time on: no' in timedatectl_result.stdout"
+  become: true
+
+- name: Specify locale
+  ansible.builtin.copy:
+    content: "en_US.UTF-8 UTF-8\\n"
+    dest: /etc/locale.gen
+  become: true
+  register: locale
+
+- name: Generate locale
+  ansible.builtin.command: locale-gen
+  become: true
+  when: locale.changed
+
+- name: Set locale
+  ansible.builtin.copy:
+    content: "LANG=en_US.UTF-8"
+    dest: /etc/locale.conf
+  become: true
+
+- name: Update all packages to their latest version
+  environment:
+    DEBIAN_FRONTEND: noninteractive
+  apt:
+    name: "*"
+    state: latest
+    autoclean: yes
+    autoremove: yes
+    update_cache: yes
+    force_apt_get: yes
+    install_recommends: yes
+
+- name: Install required packages
+  apt:
+    name: "{{ item }}"
+    state: present
+    update_cache: yes
+  loop: "{{ applications }}"
+
+- name: Add Erlang apt key
+  apt_key:
+    url: "{{ erlang_apt_key_url }}"
+    state: present
+
+- name: Add RabbitMQ apt key
+  apt_key:
+    url: "{{ rabbitmq_apt_key_url }}"
+    state: present
+
+- name: Creates directory keyring
+  file:
+    path: /usr/share/keyrings
+    state: directory
+    mode: '0755'
+  become: true
+
+- name: Add Team RabbitMQ's main signing key
+  shell: |
+    curl -1sLf "{{ rabittmq_main_key }}" | gpg --dearmor | tee /usr/share/keyrings/com.rabbitmq.team.gpg > /dev/null
+  args:
+    creates: /usr/share/keyrings/com.rabbitmq.team.gpg
+  become: true
+
+- name: Add Erlang key
+  shell: |
+    curl -1sLf "{{ erlang_repository }}" | gpg --dearmor | tee /usr/share/keyrings/rabbitmq.E495BB49CC4BBE5B.gpg > /dev/null
+  args:
+    creates: /usr/share/keyrings/rabbitmq.E495BB49CC4BBE5B.gpg
+  become: true
+
+- name: Add RabbitMQ key
+  shell: |
+    curl -1sLf "{{ rabbitmq_repository }}" | gpg --dearmor | tee /usr/share/keyrings/rabbitmq.9F4587F226208342.gpg > /dev/null
+  args:
+    creates: /usr/share/keyrings/rabbitmq.9F4587F226208342.gpg
+  become: true
+
+- name: Add apt repositories maintained by Team RabbitMQ
+  template:
+    src: rabbitmq_list.j2
+    dest: /etc/apt/sources.list.d/rabbitmq_sources.list
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Install Erlang and RabbitMQ
+  apt:
+    name: "{{ item }}"
+    state: present
+    update_cache: yes
+  loop: "{{ erlang_packages }}"
+
+- name: Enable and start RabbitMQ service
+  systemd:
+    name: rabbitmq-server
+    enabled: yes
+    state: restarted

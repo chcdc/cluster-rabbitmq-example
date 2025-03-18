@@ -1,0 +1,16 @@
+[rabbitmq_master]
+{{ groups['os_Debian'][0] }} ansible_host={{ hostvars[groups['os_Debian'][0]]['public_ip'] }} ansible_user=root
+
+[rabbitmq_nodes]
+{% for host in groups['os_Debian'][1:] %}
+{{ host }} ansible_host={{ hostvars[host]['public_ip'] }} ansible_user=root
+{% endfor %}
+
+[debian]
+{% for host in groups['os_Debian'] %}
+{{ host }} ansible_host={{ hostvars[host]['public_ip'] }} ansible_user=root
+{% endfor %}
+
+[rabbitmq:children]
+rabbitmq_master
+rabbitmq_nodes

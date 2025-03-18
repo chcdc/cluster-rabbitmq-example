@@ -1,0 +1,68 @@
+---
+- name: Stop RabbitMQ service on all nodes
+  systemd:
+    name: rabbitmq-server
+    state: stopped
+
+- name: Create .erlang.cookie template
+  template:
+    src: erlang.cookie.j2
+    dest: /var/lib/rabbitmq/.erlang.cookie
+    owner: rabbitmq
+    group: rabbitmq
+    mode: '0400'
+
+- name: Create /etc/rabbitmq directory if it doesn't exist
+  file:
+    path: /etc/rabbitmq
+    state: directory
+    owner: rabbitmq
+    group: rabbitmq
+    mode: '0755'
+
+- name: Create RabbitMQ config file
+  template:
+    src: rabbitmq.conf.j2
+    dest: /etc/rabbitmq/rabbitmq.conf
+    owner: rabbitmq
+    group: rabbitmq
+    mode: '0644'
+  notify: restart rabbitmq
+
+- name: Start RabbitMQ service on master node
+  systemd:
+    name: rabbitmq-server
+    state: restarted
+  when: inventory_hostname in groups['rabbitmq_master']
+
+- name: Wait for RabbitMQ to start on master
+  wait_for:
+    port: 5672
+    delay: 10
+  when: inventory_hostname in groups['rabbitmq_master']
+
+- name: Start RabbitMQ service on other nodes
+  systemd:
+    name: rabbitmq-server
+    state: restarted
+  when: inventory_hostname in groups['rabbitmq_nodes']
+
+- name: Wait for RabbitMQ to start on nodes
+  wait_for:
+    port: 5672
+    delay: 10
+  when: inventory_hostname in groups['rabbitmq_nodes']
+
+- name: Get master hostname
+  set_fact:
+    master_host: "{{ groups['os_Debian'][0] }}"
+  run_once: true
+  delegate_to: localhost
+
+- name: Join cluster from nodes
+  shell: |
+    rabbitmqctl stop_app
+    rabbitmqctl reset
+    rabbitmqctl join_cluster rabbit@{{ groups['rabbitmq_master'][0] }}
+    rabbitmqctl start_app
+  when: inventory_hostname in groups['rabbitmq_nodes']

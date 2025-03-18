@@ -1,0 +1,19 @@
+---
+timezone: America/Sao_Paulo
+
+rabbitmq_version: "4"
+rabbitmq_erlang_cookie: "CHANGE_THIS-COOKIE-VALUE"
+rabbitmq_admin_user: admin
+rabbitmq_admin_password: StrongAdminPassword123
+
+rabbitmq_users:
+  - name: attention
+    password: AttentionPassword123
+    vhost: attention
+    configure_priv: ".*"
+    read_priv: ".*"
+    write_priv: ".*"
+
+rabbitmq_plugins:
+  - rabbitmq_management
+  - rabbitmq_management_agent

@@ -1,0 +1,27 @@
+---
+- name: Create admin user
+  community.rabbitmq.rabbitmq_user:
+    user: "{{ rabbitmq_admin_user }}"
+    password: "{{ rabbitmq_admin_password }}"
+    tags: administrator
+    state: present
+
+- name: Create vhosts and users
+  block:
+    - name: Create vhosts
+      community.rabbitmq.rabbitmq_vhost:
+        name: "{{ item.vhost }}"
+        state: present
+      loop: "{{ rabbitmq_users }}"
+
+    - name: Create users and set permissions
+      community.rabbitmq.rabbitmq_user:
+        user: "{{ item.name }}"
+        password: "{{ item.password }}"
+        vhost: "{{ item.vhost }}"
+        configure_priv: "{{ item.configure_priv }}"
+        read_priv: "{{ item.read_priv }}"
+        write_priv: "{{ item.write_priv }}"
+        state: present
+      loop: "{{ rabbitmq_users }}"
+  when: inventory_hostname in groups['rabbitmq_master']

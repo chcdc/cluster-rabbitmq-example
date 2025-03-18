@@ -1,0 +1,6 @@
+---
+- name: Enable RabbitMQ management plugins
+  community.rabbitmq.rabbitmq_plugin:
+    names: "{{ rabbitmq_plugins | join(',') }}"
+    state: enabled
+  notify: restart rabbitmq
