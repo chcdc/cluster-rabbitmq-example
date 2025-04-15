@@ -13,7 +13,15 @@ $ terraform plan
 $ terraform apply
 ```
 
-In the ansible directory:
+In the ansible directory
+
+Show the inventory:
+```bash
+$ ansible-inventory -i aws_ec2.yml --graph
+```
+
+
+Apply the configurations:
 ```bash
 $ ansible-playbook -i aws_ec2.yml generate_inventory.yml [Optional]
 $ ansible-playbook main.yml
